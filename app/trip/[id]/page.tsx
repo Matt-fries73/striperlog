@@ -104,6 +104,9 @@ export default function TripDetailPage() {
         {/* Delete */}
         <button
           onClick={() => {
+            const ok = window.confirm("Delete this trip? This cannot be undone.");
+            if (!ok) return;
+
             deleteTrip(trip.id);
             router.push("/");
           }}

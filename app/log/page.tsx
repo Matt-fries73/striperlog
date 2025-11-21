@@ -15,8 +15,8 @@ export default function LogTripPage() {
 
   const now = new Date();
   const [date, setDate] = useState(now.toISOString().slice(0, 10)); // YYYY-MM-DD
-  const [startTime, setStartTime] = useState("05:00");
-  const [endTime, setEndTime] = useState("08:00");
+  const [startTime, setStartTime] = useState(now.toISOString().slice(11, 16)); // HH:MM
+  const [endTime, setEndTime] = useState(""); // optional
 
   const [spotLabel, setSpotLabel] = useState("");
   const [lat, setLat] = useState<string>("");
@@ -69,9 +69,11 @@ export default function LogTripPage() {
       notes: notes.trim(),
     };
 
-    // simple consistency rule: if skunk is true, force numBass to 0
-    if (skunk) {
+    // consistency rules for skunk vs numBass
+    if (trip.skunk) {
       trip.numBass = 0;
+    } else if (trip.numBass > 0) {
+      trip.skunk = false;
     }
 
     saveTrip(trip);

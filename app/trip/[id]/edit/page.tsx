@@ -136,7 +136,7 @@ export default function EditTripPage() {
       notes: notes.trim(),
     };
 
-    // consistency for skunk flag
+    // consistency rules for skunk vs numBass
     if (updated.skunk) {
       updated.numBass = 0;
     } else if (updated.numBass > 0) {
