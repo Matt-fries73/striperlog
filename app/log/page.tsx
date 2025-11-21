@@ -80,6 +80,17 @@ export default function LogTripPage() {
 
     saveTrip(trip);
 
+    // Sync trip to Supabase in the background
+    fetch("/api/trips", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json"
+      },
+      body: JSON.stringify(trip)
+    }).catch((err) => {
+      console.error("Failed to sync trip to Supabase:", err);
+    });
+
     alert("Trip saved locally.");
     router.push("/");
   };
