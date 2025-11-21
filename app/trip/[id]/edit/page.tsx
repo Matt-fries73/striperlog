@@ -136,7 +136,7 @@ export default function EditTripPage() {
       notes: notes.trim(),
     };
 
-    // consistency rules for skunk vs numBass
+    // ✅ consistency rules for skunk vs numBass
     if (updated.skunk) {
       updated.numBass = 0;
     } else if (updated.numBass > 0) {

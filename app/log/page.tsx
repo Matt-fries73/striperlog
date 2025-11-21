@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import type { Trip, TideStage, WindDir, WaterClarity, SizeBucket } from "@/types/trip";
-import { saveTrip } from "@/lib/tripStorage";
+import { saveTrip, getAllTrips } from "@/lib/tripStorage";
 
 const TIDE_OPTIONS: TideStage[] = ["incoming", "outgoing", "high", "low", "slack", "unknown"];
 const WIND_DIR_OPTIONS: WindDir[] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "VAR", "unknown"];
@@ -18,7 +18,9 @@ export default function LogTripPage() {
   const [startTime, setStartTime] = useState(now.toISOString().slice(11, 16)); // HH:MM
   const [endTime, setEndTime] = useState(""); // optional
 
-  const [spotLabel, setSpotLabel] = useState("");
+  const lastTrips = getAllTrips();
+  const lastSpot = lastTrips.length > 0 ? lastTrips[lastTrips.length - 1].spotLabel : "";
+  const [spotLabel, setSpotLabel] = useState(lastSpot);
   const [lat, setLat] = useState<string>("");
   const [lon, setLon] = useState<string>("");
 
@@ -69,7 +71,7 @@ export default function LogTripPage() {
       notes: notes.trim(),
     };
 
-    // consistency rules for skunk vs numBass
+    // ✅ consistency rules for skunk vs numBass
     if (trip.skunk) {
       trip.numBass = 0;
     } else if (trip.numBass > 0) {
