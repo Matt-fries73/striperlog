@@ -4,64 +4,61 @@ import { supabaseAdmin } from "@/lib/supabaseAdmin";
 
 import type { Trip } from "@/types/trip";
 
-export async function POST(req: NextRequest) {
+async function triggerEnrichment(tripId: string) {
   try {
-    const body = await req.json();
-    const trip = body as Trip;
+    const url =
+      process.env.NEXT_PUBLIC_APP_URL + "/enrich-trip";
 
-    // Basic sanity check
-    if (!trip.id || !trip.startedAt || !trip.spotLabel) {
-      return NextResponse.json(
-        { success: false, error: "Missing required trip fields" },
-        { status: 400 }
-      );
-    }
-
-    const { error } = await supabaseAdmin.from("trips").insert({
-      id: trip.id,
-      created_at: trip.createdAt,
-      started_at: trip.startedAt,
-      ended_at: trip.endedAt,
-
-      spot_label: trip.spotLabel,
-      lat: trip.lat,
-      lon: trip.lon,
-
-      tide_stage: trip.tideStage,
-      wind_dir: trip.windDir,
-      wind_speed_kts: trip.windSpeedKts,
-      water_clarity: trip.waterClarity,
-      water_temp_f: trip.waterTempF,
-
-      lure_type: trip.lureType,
-      num_bass: trip.numBass,
-      best_size_in: trip.bestSizeIn,
-      size_bucket: trip.sizeBucket,
-      skunk: trip.skunk,
-
-      notes: trip.notes,
-
-      enriched: false,
-      enrich_error: null,
-      enriched_at: null
+    await fetch(url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ tripId }),
     });
-
-    if (error) {
-      console.error("Supabase insert error:", error);
-      return NextResponse.json(
-        { success: false, error: error.message },
-        { status: 500 }
-      );
-    }
-
-    return NextResponse.json({ success: true }, { status: 200 });
   } catch (err) {
-    console.error("Trips API error:", err);
+    console.error("Failed to trigger enrichment:", err);
+  }
+}
+
+export async function POST(req: NextRequest) {
+  const body = await req.json();
+  const trip = {
+    id: body.id,
+    started_at: body.startedAt,
+    ended_at: body.endedAt,
+    spot_label: body.spotLabel,
+    lat: body.lat,
+    lon: body.lon,
+    tide_stage: body.tideStage,
+    wind_dir: body.windDir,
+    wind_speed_kts: body.windSpeedKts,
+    water_clarity: body.waterClarity,
+    water_temp_f: body.waterTempF,
+    lure_type: body.lureType,
+    num_bass: body.numBass,
+    best_size_in: body.bestSizeIn,
+    size_bucket: body.sizeBucket,
+    skunk: body.skunk,
+    notes: body.notes,
+    created_at: new Date().toISOString(),
+  };
+
+  const { error } = await supabaseAdmin
+    .from("trips")
+    .insert(trip);
+
+  if (error) {
     return NextResponse.json(
-      { success: false, error: "Invalid request payload" },
-      { status: 400 }
+      { success: false, error: "Failed to insert trip" },
+      { status: 500 }
     );
   }
+
+  // 🔥 Fire enrichment — do NOT await
+  triggerEnrichment(trip.id).catch((err) =>
+    console.error("Enrichment trigger failed:", err)
+  );
+
+  return NextResponse.json({ success: true });
 }
 
 export async function GET() {
