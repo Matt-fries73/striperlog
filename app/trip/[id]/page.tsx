@@ -90,6 +90,16 @@ export default function TripDetailPage() {
               env.env_sunset_utc ?? prev.env_sunset_utc,
             env_daylight_stage:
               env.env_daylight_stage ?? prev.env_daylight_stage,
+            env_swell_height_ft:
+              env.env_swell_height_ft ?? prev.env_swell_height_ft,
+            env_swell_period_s:
+              env.env_swell_period_s ?? prev.env_swell_period_s,
+            env_swell_direction_deg:
+              env.env_swell_direction_deg ?? prev.env_swell_direction_deg,
+            env_swell_direction_cardinal:
+              env.env_swell_direction_cardinal ?? prev.env_swell_direction_cardinal,
+            env_water_temp_f:
+              env.env_water_temp_f ?? prev.env_water_temp_f,
           };
         });
       } catch (err) {
@@ -245,6 +255,33 @@ export default function TripDetailPage() {
                 </span>
               ) : (
                 <span className="text-black/60">No daylight data</span>
+              )}
+            </div>
+            {/* Swell */}
+            <div className="text-xs font-medium text-black">Swell</div>
+            <div>
+              {trip.env_swell_height_ft != null || trip.env_swell_period_s != null ? (
+                <span className="text-black">
+                  {trip.env_swell_height_ft != null &&
+                    `${trip.env_swell_height_ft.toFixed(1)} ft`}
+                  {trip.env_swell_period_s != null &&
+                    ` @ ${trip.env_swell_period_s.toFixed(1)} s`}
+                  {trip.env_swell_direction_cardinal &&
+                    ` · ${trip.env_swell_direction_cardinal}`}
+                </span>
+              ) : (
+                <span className="text-black/60">No swell data</span>
+              )}
+            </div>
+            {/* Water temp */}
+            <div className="text-xs font-medium text-black">Water temp</div>
+            <div>
+              {trip.env_water_temp_f != null ? (
+                <span className="text-black">
+                  {trip.env_water_temp_f.toFixed(1)} °F
+                </span>
+              ) : (
+                <span className="text-black/60">No water temp data</span>
               )}
             </div>
           </div>

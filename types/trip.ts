@@ -51,5 +51,10 @@ export interface Trip {
   env_sunrise_utc?: string | null;
   env_sunset_utc?: string | null;
   env_daylight_stage?: string | null;
+  env_swell_height_ft?: number | null;
+  env_swell_period_s?: number | null;
+  env_swell_direction_deg?: number | null;
+  env_swell_direction_cardinal?: string | null;
+  env_water_temp_f?: number | null;
 }
 

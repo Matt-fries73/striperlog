@@ -95,6 +95,11 @@ export async function GET(req: NextRequest) {
         "env_sunrise_utc",
         "env_sunset_utc",
         "env_daylight_stage",
+        "env_swell_height_ft",
+        "env_swell_period_s",
+        "env_swell_direction_deg",
+        "env_swell_direction_cardinal",
+        "env_water_temp_f",
       ].join(",")
     )
     .eq("id", id)

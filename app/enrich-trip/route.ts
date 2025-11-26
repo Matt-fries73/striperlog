@@ -4,13 +4,53 @@ import { fetchWeatherForTrip } from "@/lib/weather";
 import { fetchTideForTrip } from "@/lib/tide";
 import { getMoonPhase } from "@/lib/moon";
 import { fetchSunForTrip } from "@/lib/sun";
+import { fetchSwellForTrip } from "@/lib/swell";
+import { getStationIdForSpot } from "@/lib/spots";
 
 // Map spot keywords → NOAA tide station IDs
+// Parsed by "includes" on the lowercased spot label.
+// Covers Sandy Hook → IBSP coastline at a region/town level.
 const SPOT_TIDE_STATION: Record<string, string> = {
-  "sea bright": "8531680",
+  // Upper bay / Hook area
+  "highlands": "8531680",
   "sandy hook": "8531680",
+  "north beach": "8531680",
+
+  // Northern Monmouth coast
+  "sea bright": "8531680",
   "monmouth beach": "8531680",
+  "seven presidents": "8531680",
   "long branch": "8531680",
+
+  // Deal / Asbury / mid-Monmouth coast
+  "deal": "8531678",
+  "allenhurst": "8531678",
+  "loch arbour": "8531678",
+  "asbury": "8531678",
+  "ocean grove": "8531678",
+  "bradley beach": "8531678",
+  "avon": "8531678",
+  "belmar": "8531678",
+  "spring lake": "8531678",
+  "sea girt": "8531678",
+
+  // Manasquan / inlet
+  "manasquan": "8530580",
+
+  // Point Pleasant / Bay Head
+  "point pleasant": "8530590",
+  "bay head": "8530590",
+
+  // Mantoloking → Lavallette strip
+  "mantoloking": "8532668",
+  "normandy": "8532668",
+  "lavallette": "8532668",
+  "ortley": "8532668",
+
+  // Seaside / Island Beach
+  "seaside heights": "8532680",
+  "seaside park": "8532680",
+  "seaside": "8532680",
   "island beach": "8532680",
   "ibsp": "8532680",
 };
@@ -28,15 +68,51 @@ function getTideStationId(label: string | null): string | null {
 }
 
 // ---- SPOT → LAT/LON MAP (v0) ----
-// Later we'll move this to Supabase, but for now it's perfect.
+// Parsed by "includes" on the lowercased spot label.
+// These are approximate coastal coordinates for weather/swell/tide context.
 const SPOT_COORDS: Record<string, { lat: number; lon: number }> = {
-  "sea bright": { lat: 40.3618, lon: -73.9783 },
-  "north beach": { lat: 40.4663, lon: -73.9930 },
+  // Upper bay / Hook area
+  "highlands": { lat: 40.402, lon: -74.001 },
   "sandy hook": { lat: 40.4663, lon: -73.9930 },
-  "deal": { lat: 40.2478, lon: -73.9990 },
-  "long branch": { lat: 40.3030, lon: -73.9887 },
+  "north beach": { lat: 40.4663, lon: -73.9930 },
+
+  // Northern Monmouth coast
+  "sea bright": { lat: 40.3618, lon: -73.9783 },
   "monmouth beach": { lat: 40.3308, lon: -73.9722 },
+  "seven presidents": { lat: 40.282, lon: -73.974 },
+  "long branch": { lat: 40.3030, lon: -73.9887 },
+
+  // Deal / Asbury / mid-Monmouth coast
+  "deal": { lat: 40.2478, lon: -73.9990 },
+  "allenhurst": { lat: 40.237, lon: -73.999 },
+  "loch arbour": { lat: 40.234, lon: -73.999 },
+  "asbury": { lat: 40.223, lon: -73.998 },
+  "ocean grove": { lat: 40.212, lon: -73.998 },
+  "bradley beach": { lat: 40.203, lon: -73.998 },
+  "avon": { lat: 40.192, lon: -74.000 },
+  "belmar": { lat: 40.178, lon: -74.022 },
+  "spring lake": { lat: 40.151, lon: -74.027 },
+  "sea girt": { lat: 40.132, lon: -74.033 },
+
+  // Manasquan / inlet
+  "manasquan": { lat: 40.104, lon: -74.037 },
+
+  // Point Pleasant / Bay Head
+  "point pleasant": { lat: 40.091, lon: -74.046 },
+  "bay head": { lat: 40.075, lon: -74.055 },
+
+  // Mantoloking → Lavallette strip
+  "mantoloking": { lat: 40.038, lon: -74.055 },
+  "normandy": { lat: 39.998, lon: -74.066 },
+  "lavallette": { lat: 39.97, lon: -74.07 },
+  "ortley": { lat: 39.955, lon: -74.07 },
+
+  // Seaside / Island Beach
+  "seaside heights": { lat: 39.94, lon: -74.07 },
+  "seaside park": { lat: 39.92, lon: -74.07 },
+  "seaside": { lat: 39.93, lon: -74.07 },
   "island beach": { lat: 39.8091, lon: -74.0840 },
+  "ibsp": { lat: 39.8091, lon: -74.0840 },
 };
 
 // Helper to get coordinates from a spot label
@@ -163,8 +239,14 @@ export async function POST(req: NextRequest) {
   }
 
   // ---- Tide enrichment ----
-  const stationId =
-    trip.env_tide_station_id || getTideStationId(trip.spot_label);
+  // Priority:
+  // 1) Station mapped from spot label (lib/spots)
+  // 2) Existing env_tide_station_id on the trip (if any)
+  // 3) Fallback to Sandy Hook (8531680)
+  let stationId =
+    getStationIdForSpot(trip.spot_label) ||
+    trip.env_tide_station_id ||
+    "8531680"; // Sandy Hook as global fallback
 
   if (stationId && trip.started_at) {
     try {
@@ -175,8 +257,6 @@ export async function POST(req: NextRequest) {
         update.env_tide_height_ft = tide.heightFt;
         update.env_tide_stage_simple = tide.stageSimple;
         update.env_tide_stage_detailed = tide.stageDetailed;
-        // If you ever want to inspect full tide curve:
-        // update.env_tide_raw = tide.raw;  // only if you add this column later
       }
     } catch (err) {
       console.error("Tide enrichment failed:", err);
@@ -209,6 +289,23 @@ export async function POST(req: NextRequest) {
       }
     } catch (err) {
       console.error("Sun enrichment failed:", err);
+    }
+  }
+
+  // ---- Swell / water temperature enrichment ----
+  if (lat && lon && trip.started_at) {
+    try {
+      const swell = await fetchSwellForTrip(lat, lon, trip.started_at);
+
+      if (swell) {
+        update.env_swell_height_ft = swell.swellHeightFt;
+        update.env_swell_period_s = swell.swellPeriodS;
+        update.env_swell_direction_deg = swell.swellDirectionDeg;
+        update.env_swell_direction_cardinal = swell.swellDirectionCardinal;
+        update.env_water_temp_f = swell.waterTempF;
+      }
+    } catch (err) {
+      console.error("Swell enrichment failed:", err);
     }
   }
 
