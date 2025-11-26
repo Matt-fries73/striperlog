@@ -61,6 +61,52 @@ export async function POST(req: NextRequest) {
   return NextResponse.json({ success: true });
 }
 
-export async function GET() {
-  return NextResponse.json({ ok: true, route: "/api/trips" });
+export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url);
+
+  const id = searchParams.get("id");
+
+  if (!id) {
+    return NextResponse.json(
+      { error: "Missing id query param" },
+      { status: 400 }
+    );
+  }
+
+  // Only select env_* fields we care about (no PII, no service-role leaks)
+  const { data, error } = await supabaseAdmin
+    .from("trips")
+    .select(
+      [
+        "id",
+        "env_source",
+        "env_timestamp",
+        "env_wind_speed_kts",
+        "env_wind_dir_deg",
+        "env_wind_dir_cardinal",
+        "env_air_temp_f",
+        "env_tide_station_id",
+        "env_tide_height_ft",
+        "env_tide_stage_simple",
+        "env_tide_stage_detailed",
+        "env_moon_phase_name",
+        "env_moon_phase_value",
+        "env_moon_illumination",
+        "env_sunrise_utc",
+        "env_sunset_utc",
+        "env_daylight_stage",
+      ].join(",")
+    )
+    .eq("id", id)
+    .maybeSingle();
+
+  if (error || !data) {
+    console.error("Supabase GET /api/trips error:", error);
+    return NextResponse.json(
+      { error: "Trip not found or query failed" },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json({ trip: data });
 }

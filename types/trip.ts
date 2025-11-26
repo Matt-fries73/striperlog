@@ -33,5 +33,23 @@ export interface Trip {
   skunk: boolean;
 
   notes: string;
+
+  // Enrichment fields (added by backend)
+  env_source?: string | null;
+  env_timestamp?: string | null;
+  env_wind_speed_kts?: number | null;
+  env_wind_dir_cardinal?: string | null;
+  env_wind_dir_deg?: number | null;
+  env_air_temp_f?: number | null;
+  env_tide_stage_simple?: string | null;
+  env_tide_stage_detailed?: string | null;
+  env_tide_height_ft?: number | null;
+  env_tide_station_id?: string | null;
+  env_moon_phase_name?: string | null;
+  env_moon_phase_value?: number | null;
+  env_moon_illumination?: number | null;
+  env_sunrise_utc?: string | null;
+  env_sunset_utc?: string | null;
+  env_daylight_stage?: string | null;
 }
 

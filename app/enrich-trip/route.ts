@@ -1,6 +1,31 @@
 import { NextRequest, NextResponse } from "next/server";
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { fetchWeatherForTrip } from "@/lib/weather";
+import { fetchTideForTrip } from "@/lib/tide";
+import { getMoonPhase } from "@/lib/moon";
+import { fetchSunForTrip } from "@/lib/sun";
+
+// Map spot keywords → NOAA tide station IDs
+const SPOT_TIDE_STATION: Record<string, string> = {
+  "sea bright": "8531680",
+  "sandy hook": "8531680",
+  "monmouth beach": "8531680",
+  "long branch": "8531680",
+  "island beach": "8532680",
+  "ibsp": "8532680",
+};
+
+// Find station by checking if spot label includes any known keyword
+function getTideStationId(label: string | null): string | null {
+  if (!label) return null;
+  const lower = label.toLowerCase();
+
+  for (const key in SPOT_TIDE_STATION) {
+    if (lower.includes(key)) return SPOT_TIDE_STATION[key];
+  }
+
+  return null;
+}
 
 // ---- SPOT → LAT/LON MAP (v0) ----
 // Later we'll move this to Supabase, but for now it's perfect.
@@ -135,6 +160,56 @@ export async function POST(req: NextRequest) {
   }
   if (!trip.wind_dir && update.env_wind_dir_cardinal) {
     update.wind_dir = update.env_wind_dir_cardinal;
+  }
+
+  // ---- Tide enrichment ----
+  const stationId =
+    trip.env_tide_station_id || getTideStationId(trip.spot_label);
+
+  if (stationId && trip.started_at) {
+    try {
+      const tide = await fetchTideForTrip(stationId, trip.started_at);
+
+      if (tide) {
+        update.env_tide_station_id = stationId;
+        update.env_tide_height_ft = tide.heightFt;
+        update.env_tide_stage_simple = tide.stageSimple;
+        update.env_tide_stage_detailed = tide.stageDetailed;
+        // If you ever want to inspect full tide curve:
+        // update.env_tide_raw = tide.raw;  // only if you add this column later
+      }
+    } catch (err) {
+      console.error("Tide enrichment failed:", err);
+    }
+  }
+
+  // ---- Moon enrichment ----
+  if (trip.started_at) {
+    try {
+      const startedAt = new Date(trip.started_at);
+      const moon = getMoonPhase(startedAt);
+
+      update.env_moon_phase_name = moon.phaseName;
+      update.env_moon_phase_value = moon.phaseValue;
+      update.env_moon_illumination = moon.illumination;
+    } catch (err) {
+      console.error("Moon enrichment failed:", err);
+    }
+  }
+
+  // ---- Sun / daylight enrichment ----
+  if (lat && lon && trip.started_at) {
+    try {
+      const sun = await fetchSunForTrip(lat, lon, trip.started_at);
+
+      if (sun) {
+        update.env_sunrise_utc = sun.sunriseUtc;
+        update.env_sunset_utc = sun.sunsetUtc;
+        update.env_daylight_stage = sun.daylightStage;
+      }
+    } catch (err) {
+      console.error("Sun enrichment failed:", err);
+    }
   }
 
   // Save
