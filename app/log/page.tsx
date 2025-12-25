@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import type { Trip, TideStage, WindDir, WaterClarity, SizeBucket } from "@/types/trip";
-import { saveTrip, getAllTrips } from "@/lib/tripStorage";
+import { supabaseBrowser } from "@/lib/supabaseClient";
+import { AuthGate } from "@/app/components/AuthGate";
 
 const TIDE_OPTIONS: TideStage[] = ["incoming", "outgoing", "high", "low", "slack", "unknown"];
 const WIND_DIR_OPTIONS: WindDir[] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "VAR", "unknown"];
@@ -18,9 +19,41 @@ export default function LogTripPage() {
   const [startTime, setStartTime] = useState(now.toISOString().slice(11, 16)); // HH:MM
   const [endTime, setEndTime] = useState(""); // optional
 
-  const lastTrips = getAllTrips();
-  const lastSpot = lastTrips.length > 0 ? lastTrips[lastTrips.length - 1].spotLabel : "";
-  const [spotLabel, setSpotLabel] = useState(lastSpot);
+  const [spotLabel, setSpotLabel] = useState("");
+
+  // Fetch last trip's spot label from Supabase to auto-fill
+  useEffect(() => {
+    async function fetchLastSpot() {
+      try {
+        const {
+          data: { session },
+        } = await supabaseBrowser.auth.getSession();
+
+        if (!session?.user) return;
+
+        const { data, error } = await supabaseBrowser
+          .from("trips")
+          .select("spot_label")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: false })
+          .limit(1)
+          .maybeSingle();
+
+        if (error) {
+          console.error("Error fetching last trip:", error);
+          return;
+        }
+
+        if (data?.spot_label) {
+          setSpotLabel(data.spot_label);
+        }
+      } catch (err) {
+        console.error("Error fetching last spot:", err);
+      }
+    }
+
+    fetchLastSpot();
+  }, []);
   const [lat, setLat] = useState<string>("");
   const [lon, setLon] = useState<string>("");
 
@@ -37,65 +70,89 @@ export default function LogTripPage() {
   const [skunk, setSkunk] = useState(false);
 
   const [notes, setNotes] = useState("");
+  const [saving, setSaving] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const startDateTime = new Date(`${date}T${startTime}:00`);
-    const endDateTime = endTime ? new Date(`${date}T${endTime}:00`) : null;
+    setSaving(true);
 
-    const now = new Date();
+    try {
+      // Get current user session
+      const {
+        data: { session },
+      } = await supabaseBrowser.auth.getSession();
 
-    const trip: Trip = {
-      id: `trip_${now.getTime()}`,
-      createdAt: now.toISOString(),
-      startedAt: startDateTime.toISOString(),
-      endedAt: endDateTime ? endDateTime.toISOString() : null,
+      if (!session?.user) {
+        alert("Not authenticated. Please sign in.");
+        setSaving(false);
+        return;
+      }
 
-      spotLabel: spotLabel.trim() || "Unnamed spot",
-      lat: lat ? parseFloat(lat) : null,
-      lon: lon ? parseFloat(lon) : null,
+      const startDateTime = new Date(`${date}T${startTime}:00`);
+      const endDateTime = endTime ? new Date(`${date}T${endTime}:00`) : null;
 
-      tideStage,
-      windDir,
-      windSpeedKts: windSpeedKts ? parseFloat(windSpeedKts) : null,
-      waterClarity,
-      waterTempF: waterTempF ? parseFloat(waterTempF) : null,
+      const now = new Date();
 
-      lureType: lureType.trim() || "Unknown",
-      numBass: parseInt(numBass || "0", 10),
-      bestSizeIn: bestSizeIn ? parseFloat(bestSizeIn) : null,
-      sizeBucket,
-      skunk,
+      const trip: Trip = {
+        id: crypto.randomUUID(),
+        createdAt: now.toISOString(),
+        startedAt: startDateTime.toISOString(),
+        endedAt: endDateTime ? endDateTime.toISOString() : null,
 
-      notes: notes.trim(),
-    };
+        spotLabel: spotLabel.trim() || "Unnamed spot",
+        lat: lat ? parseFloat(lat) : null,
+        lon: lon ? parseFloat(lon) : null,
 
-    // ✅ consistency rules for skunk vs numBass
-    if (trip.skunk) {
-      trip.numBass = 0;
-    } else if (trip.numBass > 0) {
-      trip.skunk = false;
+        tideStage,
+        windDir,
+        windSpeedKts: windSpeedKts ? parseFloat(windSpeedKts) : null,
+        waterClarity,
+        waterTempF: waterTempF ? parseFloat(waterTempF) : null,
+
+        lureType: lureType.trim() || "Unknown",
+        numBass: parseInt(numBass || "0", 10),
+        bestSizeIn: bestSizeIn ? parseFloat(bestSizeIn) : null,
+        sizeBucket,
+        skunk,
+
+        notes: notes.trim(),
+      };
+
+      // ✅ consistency rules for skunk vs numBass
+      if (trip.skunk) {
+        trip.numBass = 0;
+      } else if (trip.numBass > 0) {
+        trip.skunk = false;
+      }
+
+      // Save trip to Supabase via API
+      const response = await fetch("/api/trips", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ...trip,
+          userId: session.user.id,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to save trip");
+      }
+
+      router.push("/");
+    } catch (err) {
+      console.error("Error saving trip:", err);
+      alert(err instanceof Error ? err.message : "Failed to save trip. Please try again.");
+      setSaving(false);
     }
-
-    saveTrip(trip);
-
-    // Sync trip to Supabase in the background
-    fetch("/api/trips", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json"
-      },
-      body: JSON.stringify(trip)
-    }).catch((err) => {
-      console.error("Failed to sync trip to Supabase:", err);
-    });
-
-    alert("Trip saved locally.");
-    router.push("/");
   };
 
   return (
+    <AuthGate>
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       <header className="px-4 py-3 border-b border-slate-800">
         <h1 className="text-xl font-semibold tracking-tight">Log Trip</h1>
@@ -335,12 +392,14 @@ export default function LogTripPage() {
           </button>
           <button
             type="submit"
-            className="flex-1 py-2 rounded-lg bg-emerald-500 text-slate-950 font-semibold text-sm hover:bg-emerald-400 transition"
+            disabled={saving}
+            className="flex-1 py-2 rounded-lg bg-emerald-500 text-slate-950 font-semibold text-sm hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Trip
+            {saving ? "Saving..." : "Save Trip"}
           </button>
         </div>
       </form>
     </main>
+    </AuthGate>
   );
 }

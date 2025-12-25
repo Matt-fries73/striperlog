@@ -21,8 +21,17 @@ async function triggerEnrichment(tripId: string) {
 
 export async function POST(req: NextRequest) {
   const body = await req.json();
+
+  if (!body.userId) {
+    return NextResponse.json(
+      { success: false, error: "Missing userId" },
+      { status: 400 }
+    );
+  }
+
   const trip = {
     id: body.id,
+    user_id: body.userId,
     started_at: body.startedAt,
     ended_at: body.endedAt,
     spot_label: body.spotLabel,
@@ -46,12 +55,12 @@ export async function POST(req: NextRequest) {
     .from("trips")
     .insert(trip);
 
-  if (error) {
-    return NextResponse.json(
+    if (error) {
+      return NextResponse.json(
       { success: false, error: "Failed to insert trip" },
-      { status: 500 }
-    );
-  }
+        { status: 500 }
+      );
+    }
 
   // 🔥 Fire enrichment — do NOT await
   triggerEnrichment(trip.id).catch((err) =>

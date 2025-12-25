@@ -4,8 +4,7 @@ import React from "react";
 import { useParams, useRouter } from "next/navigation";
 
 import type { Trip, TideStage, WindDir, WaterClarity, SizeBucket } from "@/types/trip";
-
-import { getAllTrips, updateTrip } from "@/lib/tripStorage";
+import { supabaseBrowser } from "@/lib/supabaseClient";
 
 const TIDE_OPTIONS: TideStage[] = ["incoming", "outgoing", "high", "low", "slack", "unknown"];
 const WIND_DIR_OPTIONS: WindDir[] = ["N", "NE", "E", "SE", "S", "SW", "W", "NW", "VAR", "unknown"];
@@ -43,40 +42,117 @@ export default function EditTripPage() {
   const [skunk, setSkunk] = React.useState(false);
 
   const [notes, setNotes] = React.useState("");
+  const [saving, setSaving] = React.useState(false);
 
   // Load the trip once based on the id from the URL
   React.useEffect(() => {
-    const all = getAllTrips();
-    const found = all.find((t) => t.id === tripId) || null;
-    setTrip(found);
+    async function fetchTrip() {
+      try {
+        const {
+          data: { session },
+        } = await supabaseBrowser.auth.getSession();
 
-    if (found) {
-      // Pre-fill form fields from found trip
-      const start = new Date(found.startedAt);
-      const end = found.endedAt ? new Date(found.endedAt) : null;
+        if (!session?.user) {
+          setTrip(null);
+          return;
+        }
 
-      setDate(start.toISOString().slice(0, 10)); // YYYY-MM-DD
-      setStartTime(start.toISOString().slice(11, 16)); // HH:MM
-      setEndTime(end ? end.toISOString().slice(11, 16) : "");
+        const { data, error } = await supabaseBrowser
+          .from("trips")
+          .select("*")
+          .eq("id", tripId)
+          .eq("user_id", session.user.id)
+          .maybeSingle();
 
-      setSpotLabel(found.spotLabel);
-      setLat(found.lat !== null ? String(found.lat) : "");
-      setLon(found.lon !== null ? String(found.lon) : "");
+        if (error) {
+          console.error("Error fetching trip:", error);
+          setTrip(null);
+          return;
+        }
 
-      setTideStage(found.tideStage);
-      setWindDir(found.windDir);
-      setWindSpeedKts(found.windSpeedKts !== null ? String(found.windSpeedKts) : "");
-      setWaterClarity(found.waterClarity);
-      setWaterTempF(found.waterTempF !== null ? String(found.waterTempF) : "");
+        if (!data) {
+          setTrip(null);
+          return;
+        }
 
-      setLureType(found.lureType);
-      setNumBass(String(found.numBass));
-      setBestSizeIn(found.bestSizeIn !== null ? String(found.bestSizeIn) : "");
-      setSizeBucket(found.sizeBucket);
-      setSkunk(found.skunk);
+        // Convert Supabase row (snake_case) to Trip type (camelCase)
+        const tripData: Trip = {
+          id: data.id,
+          createdAt: data.created_at,
+          startedAt: data.started_at,
+          endedAt: data.ended_at,
+          spotLabel: data.spot_label,
+          lat: data.lat,
+          lon: data.lon,
+          tideStage: data.tide_stage,
+          windDir: data.wind_dir,
+          windSpeedKts: data.wind_speed_kts,
+          waterClarity: data.water_clarity,
+          waterTempF: data.water_temp_f,
+          lureType: data.lure_type,
+          numBass: data.num_bass,
+          bestSizeIn: data.best_size_in,
+          sizeBucket: data.size_bucket,
+          skunk: data.skunk,
+          notes: data.notes,
+          // Enrichment fields
+          env_source: data.env_source,
+          env_timestamp: data.env_timestamp,
+          env_wind_speed_kts: data.env_wind_speed_kts,
+          env_wind_dir_cardinal: data.env_wind_dir_cardinal,
+          env_wind_dir_deg: data.env_wind_dir_deg,
+          env_air_temp_f: data.env_air_temp_f,
+          env_tide_stage_simple: data.env_tide_stage_simple,
+          env_tide_stage_detailed: data.env_tide_stage_detailed,
+          env_tide_height_ft: data.env_tide_height_ft,
+          env_tide_station_id: data.env_tide_station_id,
+          env_moon_phase_name: data.env_moon_phase_name,
+          env_moon_phase_value: data.env_moon_phase_value,
+          env_moon_illumination: data.env_moon_illumination,
+          env_sunrise_utc: data.env_sunrise_utc,
+          env_sunset_utc: data.env_sunset_utc,
+          env_daylight_stage: data.env_daylight_stage,
+          env_swell_height_ft: data.env_swell_height_ft,
+          env_swell_period_s: data.env_swell_period_s,
+          env_swell_direction_deg: data.env_swell_direction_deg,
+          env_swell_direction_cardinal: data.env_swell_direction_cardinal,
+          env_water_temp_f: data.env_water_temp_f,
+        };
 
-      setNotes(found.notes);
+        setTrip(tripData);
+
+        // Pre-fill form fields from found trip
+        const start = new Date(tripData.startedAt);
+        const end = tripData.endedAt ? new Date(tripData.endedAt) : null;
+
+        setDate(start.toISOString().slice(0, 10)); // YYYY-MM-DD
+        setStartTime(start.toISOString().slice(11, 16)); // HH:MM
+        setEndTime(end ? end.toISOString().slice(11, 16) : "");
+
+        setSpotLabel(tripData.spotLabel);
+        setLat(tripData.lat !== null ? String(tripData.lat) : "");
+        setLon(tripData.lon !== null ? String(tripData.lon) : "");
+
+        setTideStage(tripData.tideStage);
+        setWindDir(tripData.windDir);
+        setWindSpeedKts(tripData.windSpeedKts !== null ? String(tripData.windSpeedKts) : "");
+        setWaterClarity(tripData.waterClarity);
+        setWaterTempF(tripData.waterTempF !== null ? String(tripData.waterTempF) : "");
+
+        setLureType(tripData.lureType);
+        setNumBass(String(tripData.numBass));
+        setBestSizeIn(tripData.bestSizeIn !== null ? String(tripData.bestSizeIn) : "");
+        setSizeBucket(tripData.sizeBucket);
+        setSkunk(tripData.skunk);
+
+        setNotes(tripData.notes);
+      } catch (err) {
+        console.error("Error fetching trip:", err);
+        setTrip(null);
+      }
     }
+
+    fetchTrip();
   }, [tripId]);
 
   if (trip === undefined) {
@@ -103,50 +179,96 @@ export default function EditTripPage() {
     );
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    const startDateTime = new Date(`${date}T${startTime || "00:00"}:00`);
-    const endDateTime = endTime ? new Date(`${date}T${endTime}:00`) : null;
+    setSaving(true);
 
-    const updated: Trip = {
-      // keep original id + createdAt
-      id: trip.id,
-      createdAt: trip.createdAt,
+    try {
+      const {
+        data: { session },
+      } = await supabaseBrowser.auth.getSession();
 
-      startedAt: startDateTime.toISOString(),
-      endedAt: endDateTime ? endDateTime.toISOString() : null,
+      if (!session?.user) {
+        alert("Not authenticated. Please sign in.");
+        setSaving(false);
+        return;
+      }
 
-      spotLabel: spotLabel.trim() || "Unnamed spot",
-      lat: lat ? parseFloat(lat) : null,
-      lon: lon ? parseFloat(lon) : null,
+      const startDateTime = new Date(`${date}T${startTime || "00:00"}:00`);
+      const endDateTime = endTime ? new Date(`${date}T${endTime}:00`) : null;
 
-      tideStage,
-      windDir,
-      windSpeedKts: windSpeedKts ? parseFloat(windSpeedKts) : null,
-      waterClarity,
-      waterTempF: waterTempF ? parseFloat(waterTempF) : null,
+      const updated: Trip = {
+        // keep original id + createdAt
+        id: trip.id,
+        createdAt: trip.createdAt,
 
-      lureType: lureType.trim() || "Unknown",
-      numBass: parseInt(numBass || "0", 10),
-      bestSizeIn: bestSizeIn ? parseFloat(bestSizeIn) : null,
-      sizeBucket,
-      skunk,
+        startedAt: startDateTime.toISOString(),
+        endedAt: endDateTime ? endDateTime.toISOString() : null,
 
-      notes: notes.trim(),
-    };
+        spotLabel: spotLabel.trim() || "Unnamed spot",
+        lat: lat ? parseFloat(lat) : null,
+        lon: lon ? parseFloat(lon) : null,
 
-    // ✅ consistency rules for skunk vs numBass
-    if (updated.skunk) {
-      updated.numBass = 0;
-    } else if (updated.numBass > 0) {
-      updated.skunk = false;
+        tideStage,
+        windDir,
+        windSpeedKts: windSpeedKts ? parseFloat(windSpeedKts) : null,
+        waterClarity,
+        waterTempF: waterTempF ? parseFloat(waterTempF) : null,
+
+        lureType: lureType.trim() || "Unknown",
+        numBass: parseInt(numBass || "0", 10),
+        bestSizeIn: bestSizeIn ? parseFloat(bestSizeIn) : null,
+        sizeBucket,
+        skunk,
+
+        notes: notes.trim(),
+      };
+
+      // ✅ consistency rules for skunk vs numBass
+      if (updated.skunk) {
+        updated.numBass = 0;
+      } else if (updated.numBass > 0) {
+        updated.skunk = false;
+      }
+
+      // Update trip in Supabase scoped to the logged-in user
+      const { error } = await supabaseBrowser
+        .from("trips")
+        .update({
+          started_at: updated.startedAt,
+          ended_at: updated.endedAt,
+          spot_label: updated.spotLabel,
+          lat: updated.lat,
+          lon: updated.lon,
+          tide_stage: updated.tideStage,
+          wind_dir: updated.windDir,
+          wind_speed_kts: updated.windSpeedKts,
+          water_clarity: updated.waterClarity,
+          water_temp_f: updated.waterTempF,
+          lure_type: updated.lureType,
+          num_bass: updated.numBass,
+          best_size_in: updated.bestSizeIn,
+          size_bucket: updated.sizeBucket,
+          skunk: updated.skunk,
+          notes: updated.notes,
+        })
+        .eq("id", trip.id)
+        .eq("user_id", session.user.id);
+
+      if (error) {
+        console.error("Error updating trip:", error);
+        alert("Failed to update trip. Please try again.");
+        setSaving(false);
+        return;
+      }
+
+      router.push(`/trip/${trip.id}`);
+    } catch (err) {
+      console.error("Error updating trip:", err);
+      alert("Failed to update trip. Please try again.");
+      setSaving(false);
     }
-
-    updateTrip(trip.id, updated);
-
-    alert("Trip updated.");
-    router.push(`/trip/${trip.id}`);
   };
 
   return (
@@ -398,9 +520,10 @@ export default function EditTripPage() {
           </button>
           <button
             type="submit"
-            className="flex-1 py-2 rounded-lg bg-emerald-500 text-slate-950 font-semibold text-sm hover:bg-emerald-400 transition"
+            disabled={saving}
+            className="flex-1 py-2 rounded-lg bg-emerald-500 text-slate-950 font-semibold text-sm hover:bg-emerald-400 transition disabled:opacity-50 disabled:cursor-not-allowed"
           >
-            Save Changes
+            {saving ? "Saving..." : "Save Changes"}
           </button>
         </div>
       </form>

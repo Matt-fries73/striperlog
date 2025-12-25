@@ -3,8 +3,9 @@
 import React from "react";
 import { useParams, useRouter } from "next/navigation";
 
-import { getAllTrips, deleteTrip } from "@/lib/tripStorage";
+import { supabaseBrowser } from "@/lib/supabaseClient";
 import type { Trip } from "@/types/trip";
+import { AuthGate } from "@/app/components/AuthGate";
 
 function formatDaylightStage(stage: string): string {
   switch (stage) {
@@ -32,95 +33,118 @@ export default function TripDetailPage() {
   const tripId = Array.isArray(params.id) ? params.id[0] : params.id;  
 
   const [trip, setTrip] = React.useState<Trip | null>(null);
+  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const all = getAllTrips();
-    const found = all.find((t) => t.id === tripId) || null;
-    setTrip(found);
-
-    if (!found) return;
-
-    // Fetch enriched env_* fields from Supabase and merge into local trip
-    const fetchEnrichedTrip = async () => {
+    async function fetchTrip() {
       try {
-        const res = await fetch(`/api/trips?id=${encodeURIComponent(found.id)}`);
+        // Get current user session
+        const {
+          data: { session },
+        } = await supabaseBrowser.auth.getSession();
 
-        if (!res.ok) {
-          // 404 or other error – just log and keep local data
-          console.warn("Failed to fetch enriched trip:", await res.text());
+        if (!session?.user) {
+          setLoading(false);
           return;
         }
 
-        const data = await res.json();
+        // Fetch trip from Supabase scoped to the logged-in user
+        const { data, error } = await supabaseBrowser
+          .from("trips")
+          .select("*")
+          .eq("id", tripId)
+          .eq("user_id", session.user.id)
+          .maybeSingle();
 
-        if (!data.trip) return;
+        if (error) {
+          console.error("Error fetching trip:", error);
+          setLoading(false);
+          return;
+        }
 
-        const env = data.trip as Partial<Trip>;
+        if (!data) {
+          setLoading(false);
+          return;
+        }
 
-        setTrip((prev) => {
-          if (!prev) return prev;
+        // Convert Supabase row (snake_case) to Trip type (camelCase)
+        const tripData: Trip = {
+          id: data.id,
+          createdAt: data.created_at,
+          startedAt: data.started_at,
+          endedAt: data.ended_at,
+          spotLabel: data.spot_label,
+          lat: data.lat,
+          lon: data.lon,
+          tideStage: data.tide_stage,
+          windDir: data.wind_dir,
+          windSpeedKts: data.wind_speed_kts,
+          waterClarity: data.water_clarity,
+          waterTempF: data.water_temp_f,
+          lureType: data.lure_type,
+          numBass: data.num_bass,
+          bestSizeIn: data.best_size_in,
+          sizeBucket: data.size_bucket,
+          skunk: data.skunk,
+          notes: data.notes,
+          // Enrichment fields
+          env_source: data.env_source,
+          env_timestamp: data.env_timestamp,
+          env_wind_speed_kts: data.env_wind_speed_kts,
+          env_wind_dir_cardinal: data.env_wind_dir_cardinal,
+          env_wind_dir_deg: data.env_wind_dir_deg,
+          env_air_temp_f: data.env_air_temp_f,
+          env_tide_stage_simple: data.env_tide_stage_simple,
+          env_tide_stage_detailed: data.env_tide_stage_detailed,
+          env_tide_height_ft: data.env_tide_height_ft,
+          env_tide_station_id: data.env_tide_station_id,
+          env_moon_phase_name: data.env_moon_phase_name,
+          env_moon_phase_value: data.env_moon_phase_value,
+          env_moon_illumination: data.env_moon_illumination,
+          env_sunrise_utc: data.env_sunrise_utc,
+          env_sunset_utc: data.env_sunset_utc,
+          env_daylight_stage: data.env_daylight_stage,
+          env_swell_height_ft: data.env_swell_height_ft,
+          env_swell_period_s: data.env_swell_period_s,
+          env_swell_direction_deg: data.env_swell_direction_deg,
+          env_swell_direction_cardinal: data.env_swell_direction_cardinal,
+          env_water_temp_f: data.env_water_temp_f,
+        };
 
-          // Merge ONLY env_* and related fields to avoid snake_case collisions
-          return {
-            ...prev,
-            env_source: env.env_source ?? prev.env_source,
-            env_timestamp: env.env_timestamp ?? prev.env_timestamp,
-            env_wind_speed_kts: env.env_wind_speed_kts ?? prev.env_wind_speed_kts,
-            env_wind_dir_deg: env.env_wind_dir_deg ?? prev.env_wind_dir_deg,
-            env_wind_dir_cardinal:
-              env.env_wind_dir_cardinal ?? prev.env_wind_dir_cardinal,
-            env_air_temp_f: env.env_air_temp_f ?? prev.env_air_temp_f,
-            env_tide_station_id:
-              env.env_tide_station_id ?? prev.env_tide_station_id,
-            env_tide_height_ft:
-              env.env_tide_height_ft ?? prev.env_tide_height_ft,
-            env_tide_stage_simple:
-              env.env_tide_stage_simple ?? prev.env_tide_stage_simple,
-            env_tide_stage_detailed:
-              env.env_tide_stage_detailed ?? prev.env_tide_stage_detailed,
-            env_moon_phase_name:
-              env.env_moon_phase_name ?? prev.env_moon_phase_name,
-            env_moon_phase_value:
-              env.env_moon_phase_value ?? prev.env_moon_phase_value,
-            env_moon_illumination:
-              env.env_moon_illumination ?? prev.env_moon_illumination,
-            env_sunrise_utc:
-              env.env_sunrise_utc ?? prev.env_sunrise_utc,
-            env_sunset_utc:
-              env.env_sunset_utc ?? prev.env_sunset_utc,
-            env_daylight_stage:
-              env.env_daylight_stage ?? prev.env_daylight_stage,
-            env_swell_height_ft:
-              env.env_swell_height_ft ?? prev.env_swell_height_ft,
-            env_swell_period_s:
-              env.env_swell_period_s ?? prev.env_swell_period_s,
-            env_swell_direction_deg:
-              env.env_swell_direction_deg ?? prev.env_swell_direction_deg,
-            env_swell_direction_cardinal:
-              env.env_swell_direction_cardinal ?? prev.env_swell_direction_cardinal,
-            env_water_temp_f:
-              env.env_water_temp_f ?? prev.env_water_temp_f,
-          };
-        });
+        setTrip(tripData);
       } catch (err) {
-        console.error("Error fetching enriched trip:", err);
+        console.error("Error fetching trip:", err);
+      } finally {
+        setLoading(false);
       }
-    };
+    }
 
-    fetchEnrichedTrip();
+    fetchTrip();
   }, [tripId]);
+
+  if (loading) {
+    return (
+      <AuthGate>
+        <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center">
+          <p className="text-slate-400">Loading trip...</p>
+        </main>
+      </AuthGate>
+    );
+  }
 
   if (!trip) {
     return (
-      <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center">
-        <p className="text-slate-400">Trip not found.</p>
-        <button
-          onClick={() => router.push("/")}
-          className="mt-4 px-4 py-2 bg-emerald-500 text-slate-950 rounded-lg"
-        >
-          Go Home
-        </button>
-      </main>
+      <AuthGate>
+        <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col items-center justify-center">
+          <p className="text-slate-400">Trip not found.</p>
+          <button
+            onClick={() => router.push("/")}
+            className="mt-4 px-4 py-2 bg-emerald-500 text-slate-950 rounded-lg"
+          >
+            Go Home
+          </button>
+        </main>
+      </AuthGate>
     );
   }
 
@@ -131,6 +155,7 @@ export default function TripDetailPage() {
   });
 
   return (
+    <AuthGate>
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
       <header className="px-4 py-3 border-b border-slate-800">
         <button onClick={() => router.push("/")} className="text-sm text-slate-400">
@@ -294,12 +319,39 @@ export default function TripDetailPage() {
 
         {/* Delete */}
         <button
-          onClick={() => {
+          onClick={async () => {
             const ok = window.confirm("Delete this trip? This cannot be undone.");
             if (!ok) return;
 
-            deleteTrip(trip.id);
-            router.push("/");
+            try {
+              // Get current user session
+              const {
+                data: { session },
+              } = await supabaseBrowser.auth.getSession();
+
+              if (!session?.user) {
+                alert("Not authenticated");
+                return;
+              }
+
+              // Delete trip from Supabase scoped to the logged-in user
+              const { error } = await supabaseBrowser
+                .from("trips")
+                .delete()
+                .eq("id", trip.id)
+                .eq("user_id", session.user.id);
+
+              if (error) {
+                console.error("Error deleting trip:", error);
+                alert("Failed to delete trip");
+                return;
+              }
+
+              router.push("/");
+            } catch (err) {
+              console.error("Error deleting trip:", err);
+              alert("Failed to delete trip");
+            }
           }}
           className="w-full py-3 bg-red-600 text-slate-100 rounded-xl mt-4"
         >
@@ -308,5 +360,6 @@ export default function TripDetailPage() {
 
       </div>
     </main>
+    </AuthGate>
   );
 }

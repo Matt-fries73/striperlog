@@ -2,7 +2,7 @@
 
 import React from "react";
 import { useRouter } from "next/navigation";
-import { getAllTrips } from "@/lib/tripStorage";
+import { supabaseBrowser } from "@/lib/supabaseClient";
 import type { Trip } from "@/types/trip";
 
 export default function ExportPage() {
@@ -10,11 +10,91 @@ export default function ExportPage() {
   const [trips, setTrips] = React.useState<Trip[]>([]);
   const [json, setJson] = React.useState<string>("[]");
   const [copied, setCopied] = React.useState(false);
+  const [loading, setLoading] = React.useState(true);
 
   React.useEffect(() => {
-    const all = getAllTrips();
-    setTrips(all);
-    setJson(JSON.stringify(all, null, 2));
+    async function fetchTrips() {
+      try {
+        const {
+          data: { session },
+        } = await supabaseBrowser.auth.getSession();
+
+        if (!session?.user) {
+          setLoading(false);
+          return;
+        }
+
+        const { data, error } = await supabaseBrowser
+          .from("trips")
+          .select("*")
+          .eq("user_id", session.user.id)
+          .order("created_at", { ascending: false });
+
+        if (error) {
+          console.error("Error fetching trips:", error);
+          setLoading(false);
+          return;
+        }
+
+        if (!data) {
+          setLoading(false);
+          return;
+        }
+
+        // Convert Supabase rows (snake_case) to Trip type (camelCase)
+        const tripsData: Trip[] = data.map((row: any) => ({
+          id: row.id,
+          createdAt: row.created_at,
+          startedAt: row.started_at,
+          endedAt: row.ended_at,
+          spotLabel: row.spot_label,
+          lat: row.lat,
+          lon: row.lon,
+          tideStage: row.tide_stage,
+          windDir: row.wind_dir,
+          windSpeedKts: row.wind_speed_kts,
+          waterClarity: row.water_clarity,
+          waterTempF: row.water_temp_f,
+          lureType: row.lure_type,
+          numBass: row.num_bass,
+          bestSizeIn: row.best_size_in,
+          sizeBucket: row.size_bucket,
+          skunk: row.skunk,
+          notes: row.notes,
+          // Enrichment fields
+          env_source: row.env_source,
+          env_timestamp: row.env_timestamp,
+          env_wind_speed_kts: row.env_wind_speed_kts,
+          env_wind_dir_cardinal: row.env_wind_dir_cardinal,
+          env_wind_dir_deg: row.env_wind_dir_deg,
+          env_air_temp_f: row.env_air_temp_f,
+          env_tide_stage_simple: row.env_tide_stage_simple,
+          env_tide_stage_detailed: row.env_tide_stage_detailed,
+          env_tide_height_ft: row.env_tide_height_ft,
+          env_tide_station_id: row.env_tide_station_id,
+          env_moon_phase_name: row.env_moon_phase_name,
+          env_moon_phase_value: row.env_moon_phase_value,
+          env_moon_illumination: row.env_moon_illumination,
+          env_sunrise_utc: row.env_sunrise_utc,
+          env_sunset_utc: row.env_sunset_utc,
+          env_daylight_stage: row.env_daylight_stage,
+          env_swell_height_ft: row.env_swell_height_ft,
+          env_swell_period_s: row.env_swell_period_s,
+          env_swell_direction_deg: row.env_swell_direction_deg,
+          env_swell_direction_cardinal: row.env_swell_direction_cardinal,
+          env_water_temp_f: row.env_water_temp_f,
+        }));
+
+        setTrips(tripsData);
+        setJson(JSON.stringify(tripsData, null, 2));
+      } catch (err) {
+        console.error("Error fetching trips:", err);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchTrips();
   }, []);
 
   const handleCopy = async () => {
@@ -46,6 +126,14 @@ export default function ExportPage() {
       alert("Could not start download.");
     }
   };
+
+  if (loading) {
+    return (
+      <main className="min-h-screen bg-slate-950 text-slate-100 flex items-center justify-center">
+        <p className="text-slate-400 text-sm">Loading trips...</p>
+      </main>
+    );
+  }
 
   return (
     <main className="min-h-screen bg-slate-950 text-slate-100 flex flex-col">
