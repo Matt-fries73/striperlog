@@ -1,0 +1,12 @@
+URL: https://www.storablemarine.com/legal/
+TITLE: Storable Marine Operator Terms of Service
+SOURCE: harvested via WebSearch (direct fetch blocked: 403)
+======================================================================
+
+Molo, Inc. is the provider of Storable Marine and Storable Rentals services.
+Operators are responsible for paying all processing fees imposed by the credit card brands, Stripe or any other third-party payment processor, plus additional fees imposed by Molo for processing authorizations, account verifications, payments, refunds, payouts, or disputes.
+Molo is authorized to share information and transaction information related to Stripe payment processing.
+If operators do not comply with payment processing requirements, payments may be delayed, withheld, or placed in a Reserve account.
+Operators grant Molo a security interest and lien on Reserve funds; Molo may make withdrawals/debits from the Reserve, linked bank account, or other operator accounts without prior notice to cover losses or obligations owed to Molo, Stripe, or losses the operator is responsible for.
+Reserve terms survive termination for one year, after which remaining funds are returned.
+Operators authorize Molo to initiate individual or recurring debit entries to pay losses related to transactions and use of services, including refunds and hardware costs.

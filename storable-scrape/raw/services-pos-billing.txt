@@ -1,0 +1,15 @@
+URL: https://www.storablemarine.com/services/pos-billing/
+TITLE: Marina Billing Software and POS System | Storable Marine
+SOURCE: harvested via WebSearch (direct fetch blocked: 403)
+======================================================================
+
+Marina billing software automates invoicing, recurring charges, and payment processing for slips, storage, rentals, and services -- helping operators save time, reduce errors, and improve cash flow.
+Securely process both credit card and ACH payments, with recurring billing and auto-pay to minimize late payments.
+Accepts credit cards, Google Pay, Apple Pay, and ACH payments.
+Easy payment options: chip and contactless, prepay and post pay, pay at pump, QR code scanning, and unified billing across all departments.
+Accept card payments right on the dock or in the service shop, with everything connected to marina financial reporting.
+A marina POS system processes on-site transactions like fuel, retail, and service charges, all in one integrated platform; POS transactions sync directly with billing for accuracy and reporting.
+With integrated POS and billing, every transaction from slip rentals to on-site purchases becomes faster, simpler, and more accurate.
+Integrates with tools like QuickBooks, Xero, SpeedyDock, Slack, FuelCloud.
+Dynamic pricing, auto-renew billing, online payments, POS capabilities.
+Molo's mobile app and reader complete a sale, collect a credit card payment, and handle tips in a single swift motion; customize up to four tipping options (fixed amounts or percentages).

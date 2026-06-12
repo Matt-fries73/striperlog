@@ -1,0 +1,12 @@
+# Off-site / external domains referenced by storablemarine.com (NOT crawled, per scope)
+# Surfaced via WebSearch harvesting of storablemarine.com pages.
+
+https://getmolo.com/            # Molo legacy brand site (now Storable Marine) - Terms of Service / "Storable unifies" page
+https://stellarims.com/         # Stellar rental management system (now Storable Marine Rentals)
+https://stripe.com/             # Payment processor named in Operator Terms of Service
+https://quickbooks.intuit.com/  # Accounting integration partner
+https://www.xero.com/           # Accounting integration partner
+https://www.fuelcloud.com/      # Fuel management integration partner
+https://www.speedydock.com/     # Marine drystack/launch integration partner
+https://slack.com/              # Communication integration partner
+# Note: storable.com (parent brand) is the corporate parent; not separately crawled.

@@ -1,0 +1,10 @@
+URL: https://www.storablemarine.com/marina-software-integration/fuelcloud/
+TITLE: FuelCloud | Storable Marine
+SOURCE: harvested via WebSearch (direct fetch blocked: 403)
+======================================================================
+
+FuelCloud + Storable Marine: actively manage fuel inventory, monitor all dispensing events, see which transactions were invoiced, and audit possible fuel loss.
+Fuel sales appear directly in Storable Marine, removing manual entry of fuel quantities, reducing errors and preventing lost revenue.
+Customers can dispense their own fuel; transactions automatically imported into Storable Marine.
+Employees unlock the pump with their access code; all dispensing transactions automatically sent to an audit report.
+Invoice fuel sales with a single click.

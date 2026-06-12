@@ -1,0 +1,8 @@
+URL: https://www.storablemarine.com/marina-software-integration/
+TITLE: Storable Marine Integrations
+SOURCE: harvested via WebSearch (direct fetch blocked: 403)
+======================================================================
+
+Storable Marine integrates with tools like QuickBooks, Xero, SpeedyDock, Slack, and FuelCloud.
+Integration categories: accounting (QuickBooks, Xero), marine-specific systems (SpeedyDock, FuelCloud), communication platforms (Slack).
+Connect Storable Marine with existing software systems for more seamless operations.
